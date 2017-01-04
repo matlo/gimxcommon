@@ -3,8 +3,8 @@
  License: GPLv3
  */
 
-#include <async.h>
-#include <gerror.h>
+#include "../../include/async.h"
+#include "../../include/gerror.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

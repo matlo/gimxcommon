@@ -4,7 +4,7 @@ else
 OBJECTS += $(patsubst %.c,%.o,$(wildcard src/posix/*.c))
 endif
 
-CPPFLAGS = -I.. -Iinclude
+CPPFLAGS = -I. -Iinclude
 CFLAGS += -fPIC
 
 all: $(OBJECTS)
