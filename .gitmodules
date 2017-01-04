@@ -1,0 +1,3 @@
+[submodule "gimxpoll"]
+	path = gimxpoll
+	url = https://github.com/matlo/gimxpoll.git
