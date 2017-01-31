@@ -2,7 +2,11 @@
 
 This repository contains source code that is common to the GIMX librairies.  
 It has a compilation dependency on gimxpoll headers.  
-To compile it, checkout gimxpoll at the same level as gimxcommon, enter gimxcommon and run:
+
+Compilation:
 ```
+git clone https://github.com/matlo/gimxpoll.git
+git clone https://github.com/matlo/gimxcommon.git
+cd gimxcommon
 CPPFLAGS="-I../" make
 ```
