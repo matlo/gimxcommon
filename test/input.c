@@ -62,6 +62,8 @@ int process_event(GE_Event* event)
       if(event->key.keysym == GE_KEY_ESC)
       {
         done = 1;
+        fflush(stdout);
+        return 1;
       }
       break;
     case GE_KEYUP:

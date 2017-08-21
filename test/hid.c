@@ -12,14 +12,14 @@ static char * hid_select() {
 
   char * path = NULL;
 
-  struct ghid_device * hid_devs = ghid_enumerate(0x0000, 0x0000);
+  struct ghid_device_info * hid_devs = ghid_enumerate(0x0000, 0x0000);
   if (hid_devs == NULL) {
     fprintf(stderr, "No HID device detected!\n");
     return NULL;
   }
   printf("Available HID devices:\n");
   unsigned int index = 0;
-  struct ghid_device * current;
+  struct ghid_device_info * current;
   for (current = hid_devs; current != NULL; current = current->next) {
     printf("%d VID 0x%04x PID 0x%04x PATH %s\n", index++, current->vendor_id, current->product_id, current->path);
   }

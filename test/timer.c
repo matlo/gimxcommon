@@ -10,12 +10,12 @@
 #include <stddef.h>
 #endif
 
-static int timer_close(int user __attribute__((unused))) {
+static int timer_close(void * user __attribute__((unused))) {
   done = 1;
   return 1;
 }
 
-static int timer_read(int user __attribute__((unused))) {
+static int timer_read(void * user __attribute__((unused))) {
   /*
    * Returning a non-zero value makes gpoll return, allowing to check the 'done' variable.
    */

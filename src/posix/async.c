@@ -5,6 +5,7 @@
 
 #include "../../include/async.h"
 #include "../../include/gerror.h"
+#include "../../include/glist.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -25,7 +26,7 @@ static unsigned int clients = 0;
         return RETVALUE; \
     }
 
-static struct {
+struct async_device {
     int fd;
     char * path;
     struct
@@ -36,33 +37,17 @@ static struct {
       unsigned int size;
     } read;
     struct {
-        int user;
+        void * user;
         ASYNC_READ_CALLBACK fp_read;
         ASYNC_WRITE_CALLBACK fp_write;
         ASYNC_CLOSE_CALLBACK fp_close;
         ASYNC_REMOVE_SOURCE fp_remove;
     } callback;
     void * priv;
-} devices[ASYNC_MAX_DEVICES] = { };
+    GLIST_LINK(struct async_device)
+};
 
-#define ASYNC_CHECK_DEVICE(device,retValue) \
-    if(device < 0 || device >= ASYNC_MAX_DEVICES) { \
-        fprintf(stderr, "%s:%d %s: invalid device (%d)\n", __FILE__, __LINE__, __func__, device); \
-        return retValue; \
-    } \
-    if(devices[device].fd == -1) { \
-        fprintf(stderr, "%s:%d %s: no such device (%d)\n", __FILE__, __LINE__, __func__, device); \
-        return retValue; \
-    }
-
-void async_init_static(void) __attribute__((constructor));
-void async_init_static(void)
-{
-    int i;
-    for (i = 0; i < ASYNC_MAX_DEVICES; ++i) {
-        devices[i].fd = -1;
-    }
-}
+GLIST_INST(struct async_device, async_devices, async_close)
 
 int async_init() {
 
@@ -79,53 +64,51 @@ int async_exit(void) {
     if (clients > 0) {
         --clients;
         if (clients == 0) {
-            int i;
-            for (i = 0; i < ASYNC_MAX_DEVICES; ++i) {
-                if(devices[i].fd >= 0) {
-                    async_close(i);
-                }
-            }
+            GLIST_CLEAN_ALL(async_devices, async_close)
         }
     }
     return 0;
 }
 
-static int add_device(const char * path, int fd, int print) {
-    int i;
-    for (i = 0; i < ASYNC_MAX_DEVICES; ++i) {
-        if(devices[i].path && !strcmp(devices[i].path, path)) {
+static struct async_device * add_device(const char * path, int fd, int print) {
+
+    struct async_device * current = GLIST_BEGIN(async_devices);
+    while (current != GLIST_END(async_devices)) {
+        if(current->path && !strcmp(current->path, path)) {
             if(print) {
                 fprintf(stderr, "%s:%d add_device %s: device already opened\n", __FILE__, __LINE__, path);
             }
-            return -1;
+            return NULL;
         }
+        current = current->next;
     }
-    for (i = 0; i < ASYNC_MAX_DEVICES; ++i) {
-        if(devices[i].fd == -1) {
-            devices[i].path = strdup(path);
-            if(devices[i].path != NULL) {
-                devices[i].fd = fd;
-                return i;
-            }
-            else {
-                fprintf(stderr, "%s:%d add_device %s: can't duplicate path\n", __FILE__, __LINE__, path);
-                return -1;
-            }
-        }
+
+    struct async_device * device = calloc(1, sizeof(*device));
+    if (device == NULL) {
+        PRINT_ERROR_ALLOC_FAILED("calloc")
+        return NULL;
     }
-    return -1;
+    device->path = strdup(path);
+    if (device->path == NULL) {
+        PRINT_ERROR_OTHER("failed to duplicate path")
+        free(device);
+        return NULL;
+    }
+    device->fd = fd;
+    GLIST_ADD(async_devices, device)
+    return device;
 }
 
-int async_open_path(const char * path, int print) {
+struct async_device * async_open_path(const char * path, int print) {
 
-    CHECK_INITIALIZED(print, -1)
+    CHECK_INITIALIZED(print, NULL)
 
-    int ret = -1;
+    struct async_device * device = NULL;
     if(path != NULL) {
         int fd = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK);
         if(fd != -1) {
-            ret = add_device(path, fd, print);
-            if(ret == -1) {
+            device = add_device(path, fd, print);
+            if(device == NULL) {
                 close(fd);
             }
         }
@@ -135,32 +118,28 @@ int async_open_path(const char * path, int print) {
             }
         }
     }
-    return ret;
+    return device;
 }
 
-int async_close(int device) {
+int async_close(struct async_device * device) {
 
-    ASYNC_CHECK_DEVICE(device, -1)
-
-    if (devices[device].callback.fp_remove != NULL) {
-        devices[device].callback.fp_remove(devices[device].fd);
+    if (device->callback.fp_remove != NULL) {
+        device->callback.fp_remove(device->fd);
     }
 
-    close(devices[device].fd);
+    close(device->fd);
 
-    free(devices[device].path);
-    free(devices[device].read.buf);
+    free(device->path);
+    free(device->read.buf);
 
-    memset(devices + device, 0x00, sizeof(*devices));
+    GLIST_REMOVE(async_devices, device)
 
-    devices[device].fd = -1;
+    free(device);
 
     return 0;
 }
 
-int async_read_timeout(int device, void * buf, unsigned int count, unsigned int timeout) {
-
-  ASYNC_CHECK_DEVICE(device, -1)
+int async_read_timeout(struct async_device * device, void * buf, unsigned int count, unsigned int timeout) {
 
   unsigned int bread = 0;
   int res;
@@ -174,13 +153,13 @@ int async_read_timeout(int device, void * buf, unsigned int count, unsigned int 
   while(bread != count)
   {
     FD_ZERO(&readfds);
-    FD_SET(devices[device].fd, &readfds);
-    int status = select(devices[device].fd+1, &readfds, NULL, NULL, &tv);
+    FD_SET(device->fd, &readfds);
+    int status = select(device->fd+1, &readfds, NULL, NULL, &tv);
     if(status > 0)
     {
-      if(FD_ISSET(devices[device].fd, &readfds))
+      if(FD_ISSET(device->fd, &readfds))
       {
-        res = read(devices[device].fd, buf+bread, count-bread);
+        res = read(device->fd, buf+bread, count-bread);
         if(res > 0)
         {
           bread += res;
@@ -204,9 +183,7 @@ int async_read_timeout(int device, void * buf, unsigned int count, unsigned int 
   return bread;
 }
 
-int async_write_timeout(int device, const void * buf, unsigned int count, unsigned int timeout) {
-
-  ASYNC_CHECK_DEVICE(device, -1)
+int async_write_timeout(struct async_device * device, const void * buf, unsigned int count, unsigned int timeout) {
 
   unsigned int bwritten = 0;
   int res;
@@ -220,13 +197,13 @@ int async_write_timeout(int device, const void * buf, unsigned int count, unsign
   while(bwritten != count)
   {
     FD_ZERO(&writefds);
-    FD_SET(devices[device].fd, &writefds);
-    int status = select(devices[device].fd+1, NULL, &writefds, NULL, &tv);
+    FD_SET(device->fd, &writefds);
+    int status = select(device->fd+1, NULL, &writefds, NULL, &tv);
     if(status > 0)
     {
-      if(FD_ISSET(devices[device].fd, &writefds))
+      if(FD_ISSET(device->fd, &writefds))
       {
-        res = write(devices[device].fd, buf+bwritten, count-bwritten);
+        res = write(device->fd, buf+bwritten, count-bwritten);
         if(res > 0)
         {
           bwritten += res;
@@ -250,51 +227,47 @@ int async_write_timeout(int device, const void * buf, unsigned int count, unsign
 /*
  * This function is called on data reception.
  */
-static int read_callback(int device) {
+static int read_callback(void * user) {
 
-    ASYNC_CHECK_DEVICE(device, -1)
+    struct async_device * device = (struct async_device *) user;
 
-    int ret = read(devices[device].fd, devices[device].read.buf, devices[device].read.count);
+    int ret = read(device->fd, device->read.buf, device->read.count);
 
     if(ret < 0) {
         PRINT_ERROR_ERRNO("read")
     }
 
-    return devices[device].callback.fp_read(devices[device].callback.user, (const char *)devices[device].read.buf, ret);
+    return device->callback.fp_read(device->callback.user, (const char *)device->read.buf, ret);
 }
 
 /*
  * This function is called on failure.
  */
-static int close_callback(int device) {
+static int close_callback(void * user) {
 
-    ASYNC_CHECK_DEVICE(device, -1)
+    struct async_device * device = (struct async_device *) user;
 
-    return devices[device].callback.fp_close(devices[device].callback.user);
+    return device->callback.fp_close(device->callback.user);
 }
 
-int async_set_read_size(int device, unsigned int size) {
+int async_set_read_size(struct async_device * device, unsigned int size) {
 
-    ASYNC_CHECK_DEVICE(device, -1)
-
-    if(size > devices[device].read.size) {
-        void * ptr = realloc(devices[device].read.buf, size);
+    if(size > device->read.size) {
+        void * ptr = realloc(device->read.buf, size);
         if(ptr == NULL) {
             PRINT_ERROR_ALLOC_FAILED("realloc")
             return -1;
         }
-        devices[device].read.buf = ptr;
-        devices[device].read.size = size;
+        device->read.buf = ptr;
+        device->read.size = size;
     }
 
-    devices[device].read.count = size;
+    device->read.count = size;
 
     return 0;
 }
 
-int async_register(int device, int user, const ASYNC_CALLBACKS * callbacks) {
-
-    ASYNC_CHECK_DEVICE(device, -1)
+int async_register(struct async_device * device, void * user, const ASYNC_CALLBACKS * callbacks) {
 
     if (callbacks->fp_remove == NULL) {
         PRINT_ERROR_OTHER("fp_remove is NULL")
@@ -304,25 +277,23 @@ int async_register(int device, int user, const ASYNC_CALLBACKS * callbacks) {
         PRINT_ERROR_OTHER("fp_register is NULL")
     }
 
-    devices[device].callback.user = user;
-    devices[device].callback.fp_read = callbacks->fp_read;
+    device->callback.user = user;
+    device->callback.fp_read = callbacks->fp_read;
     //fp_write is ignored
-    devices[device].callback.fp_close = callbacks->fp_close;
-    devices[device].callback.fp_remove = callbacks->fp_remove;
+    device->callback.fp_close = callbacks->fp_close;
+    device->callback.fp_remove = callbacks->fp_remove;
 
     GPOLL_CALLBACKS gpoll_callbacks = {
             .fp_read = read_callback,
             .fp_write = NULL,
             .fp_close = close_callback,
     };
-    return callbacks->fp_register(devices[device].fd, device, &gpoll_callbacks);
+    return callbacks->fp_register(device->fd, device, &gpoll_callbacks);
 }
 
-int async_write(int device, const void * buf, unsigned int count) {
+int async_write(struct async_device * device, const void * buf, unsigned int count) {
 
-    ASYNC_CHECK_DEVICE(device, -1)
-
-    int ret = write(devices[device].fd, buf, count);
+    int ret = write(device->fd, buf, count);
     if (ret == -1) {
         PRINT_ERROR_ERRNO("write")
     }
@@ -333,9 +304,7 @@ int async_write(int device, const void * buf, unsigned int count) {
     return ret;
 }
 
-int async_get_fd(int device) {
+int async_get_fd(struct async_device * device) {
 
-    ASYNC_CHECK_DEVICE(device, -1)
-
-    return devices[device].fd;
+    return device->fd;
 }
