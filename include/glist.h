@@ -13,6 +13,8 @@
 #define GLIST_HEAD(NAME) glist_##NAME##_head
 #define GLIST_TAIL(NAME) glist_##NAME##_tail
 
+#define GLIST_IS_EMPTY(NAME) (GLIST_HEAD(NAME).next == &GLIST_TAIL(NAME))
+
 #define GLIST_BEGIN(NAME) GLIST_HEAD(NAME).next
 #define GLIST_END(NAME) &GLIST_TAIL(NAME)
 
