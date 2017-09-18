@@ -277,7 +277,7 @@ int async_read_timeout(struct async_device * device, void * buf, unsigned int co
 
   memset(buf, 0x00, count);
 
-  unsigned char * dest = NULL;
+  char * dest = NULL;
   unsigned int destLength = 0;
 
   switch (device->device_type) {
