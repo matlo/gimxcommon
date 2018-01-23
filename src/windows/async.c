@@ -6,6 +6,7 @@
 #include "../../include/async.h"
 #include "../../include/gerror.h"
 #include "../../include/glist.h"
+#include <gimxlog/include/glog.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -13,6 +14,8 @@
 #include <stdlib.h>
 
 #define ASYNC_MAX_WRITE_QUEUE_SIZE 2
+
+GLOG_GET(GLOG_NAME)
 
 static unsigned int clients = 0;
 
@@ -115,7 +118,9 @@ static struct async_device * add_device(const char * path, HANDLE handle, int pr
     while (current != GLIST_END(async_devices)) {
         if(current->path && !strcmp(current->path, path)) {
             if(print) {
-                fprintf(stderr, "%s:%d add_device %s: device already opened\n", __FILE__, __LINE__, path);
+                if (GLOG_LEVEL(GLOG_NAME,ERROR)) {
+                    fprintf(stderr, "%s:%d add_device %s: device already opened\n", __FILE__, __LINE__, path);
+                }
             }
             return NULL;
         }
@@ -142,7 +147,9 @@ static struct async_device * add_device(const char * path, HANDLE handle, int pr
 
 static int queue_write(struct async_device * device, const char * buf, unsigned int count) {
   if(device->write.queue.nb == ASYNC_MAX_WRITE_QUEUE_SIZE) {
-      fprintf(stderr, "%s:%d %s: no space left in write queue for device (%s)\n", __FILE__, __LINE__, __func__, device->path);
+      if (GLOG_LEVEL(GLOG_NAME,ERROR)) {
+          fprintf(stderr, "%s:%d %s: no space left in write queue for device (%s)\n", __FILE__, __LINE__, __func__, device->path);
+      }
       return -1;
   }
   if(count < device->write.size) {
@@ -538,7 +545,7 @@ int async_set_read_size(struct async_device * device, unsigned int size) {
     if(size > device->read.size) {
         void * ptr = realloc(device->read.buf, size);
         if(ptr == NULL) {
-            fprintf(stderr, "%s:%d %s: can't allocate a buffer\n", __FILE__, __LINE__, __func__);
+            PRINT_ERROR_ALLOC_FAILED("realloc")
             return -1;
         }
         device->read.buf = ptr;

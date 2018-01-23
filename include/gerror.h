@@ -13,15 +13,26 @@
 void gerror_print_last(const char * msg);
 
 #define PRINT_ERROR_GETLASTERROR(msg) \
-  fprintf(stderr, "%s:%d %s: %s failed with error", __FILE__, __LINE__, __func__, msg); \
-  gerror_print_last("");
+  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+    fprintf(stderr, "%s:%d %s: %s failed with error", __FILE__, __LINE__, __func__, msg); \
+    gerror_print_last(""); \
+  }
 #endif
 
-#define PRINT_ERROR_ERRNO(msg) fprintf(stderr, "%s:%d %s: %s failed with error: %m\n", __FILE__, __LINE__, __func__, msg);
+#define PRINT_ERROR_ERRNO(msg) \
+  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+    fprintf(stderr, "%s:%d %s: %s failed with error: %m\n", __FILE__, __LINE__, __func__, msg); \
+  }
 
-#define PRINT_ERROR_ALLOC_FAILED(func) fprintf(stderr, "%s:%d %s: %s failed\n", __FILE__, __LINE__, __func__, func);
+#define PRINT_ERROR_ALLOC_FAILED(func) \
+  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+    fprintf(stderr, "%s:%d %s: %s failed\n", __FILE__, __LINE__, __func__, func); \
+  }
 
-#define PRINT_ERROR_OTHER(msg) fprintf(stderr, "%s:%d %s: %s\n", __FILE__, __LINE__, __func__, msg);
+#define PRINT_ERROR_OTHER(msg) \
+  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+    fprintf(stderr, "%s:%d %s: %s\n", __FILE__, __LINE__, __func__, msg); \
+  }
 
 #if !defined(LIBUSB_API_VERSION) && !defined(LIBUSBX_API_VERSION)
 static const char * LIBUSB_CALL libusb_strerror(enum libusb_error errcode)
@@ -30,8 +41,14 @@ static const char * LIBUSB_CALL libusb_strerror(enum libusb_error errcode)
 }
 #endif
 
-#define PRINT_ERROR_LIBUSB(libusbfunc,ret) fprintf(stderr, "%s:%d %s: %s failed with error: %s\n", __FILE__, __LINE__, __func__, libusbfunc, libusb_strerror(ret));
+#define PRINT_ERROR_LIBUSB(libusbfunc,ret) \
+  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+    fprintf(stderr, "%s:%d %s: %s failed with error: %s\n", __FILE__, __LINE__, __func__, libusbfunc, libusb_strerror(ret)); \
+  }
 
-#define PRINT_TRANSFER_ERROR(transfer) fprintf(stderr, "libusb_transfer failed with status %s (endpoint=0x%02x)\n", libusb_error_name(transfer->status), transfer->endpoint);
+#define PRINT_TRANSFER_ERROR(transfer) \
+  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+    fprintf(stderr, "libusb_transfer failed with status %s (endpoint=0x%02x)\n", libusb_error_name(transfer->status), transfer->endpoint); \
+  }
 
 #endif /* GERROR_H_ */

@@ -6,6 +6,7 @@
 #include "../../include/async.h"
 #include "../../include/gerror.h"
 #include "../../include/glist.h"
+#include "gimxlog/include/glog.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -15,6 +16,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+
+GLOG_GET(GLOG_NAME)
 
 static unsigned int clients = 0;
 
@@ -76,7 +79,9 @@ static struct async_device * add_device(const char * path, int fd, int print) {
     while (current != GLIST_END(async_devices)) {
         if(current->path && !strcmp(current->path, path)) {
             if(print) {
-                fprintf(stderr, "%s:%d add_device %s: device already opened\n", __FILE__, __LINE__, path);
+                if (GLOG_LEVEL(GLOG_NAME,ERROR)) {
+                    fprintf(stderr, "%s:%d add_device %s: device already opened\n", __FILE__, __LINE__, path);
+                }
             }
             return NULL;
         }
@@ -298,7 +303,9 @@ int async_write(struct async_device * device, const void * buf, unsigned int cou
         PRINT_ERROR_ERRNO("write")
     }
     else if((unsigned int) ret != count) {
-        fprintf(stderr, "%s:%d write: only %u written (requested %u)\n", __FILE__, __LINE__, ret, count);
+        if (GLOG_LEVEL(GLOG_NAME,ERROR)) {
+            fprintf(stderr, "%s:%d write: only %u written (requested %u)\n", __FILE__, __LINE__, ret, count);
+        }
     }
 
     return ret;
