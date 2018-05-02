@@ -9,11 +9,6 @@
 
 #include <gimxpoll/include/gpoll.h>
 
-#ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
-
 typedef enum {
     E_ASYNC_DEVICE_TYPE_SERIAL,
     E_ASYNC_DEVICE_TYPE_HID,
