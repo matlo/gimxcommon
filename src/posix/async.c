@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <limits.h>
 
 GLOG_GET(GLOG_NAME)
 
