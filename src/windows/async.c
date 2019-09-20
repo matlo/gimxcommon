@@ -20,12 +20,14 @@ GLOG_GET(GLOG_NAME)
 static unsigned int clients = 0;
 
 #define CHECK_INITIALIZED(PRINT,RETVALUE) \
-    if (clients == 0) { \
-        if (PRINT != 0) { \
-            PRINT_ERROR_OTHER("async_init should be called first") \
+    do { \
+        if (clients == 0) { \
+            if (PRINT != 0) { \
+                PRINT_ERROR_OTHER("async_init should be called first"); \
+            } \
+            return RETVALUE; \
         } \
-        return RETVALUE; \
-    }
+    } while (0)
 
 typedef struct
 {
@@ -77,7 +79,7 @@ static inline int setup_cancel_io(void)
     pCancelIoEx = (BOOL (__stdcall *)(HANDLE,LPOVERLAPPED)) GetProcAddress(hKernel32, "CancelIoEx");
   }
   if(pCancelIoEx == NULL) {
-    PRINT_ERROR_GETLASTERROR("GetProcAddress")
+    PRINT_ERROR_GETLASTERROR("GetProcAddress");
     return -1;
   }
   return 0;
@@ -86,7 +88,7 @@ static inline int setup_cancel_io(void)
 int async_init() {
 
     if (clients == UINT_MAX) {
-        PRINT_ERROR_OTHER("too many clients")
+        PRINT_ERROR_OTHER("too many clients");
         return -1;
     }
     
@@ -129,12 +131,12 @@ static struct async_device * add_device(const char * path, HANDLE handle, int pr
 
     struct async_device * device = calloc(1, sizeof(*device));
     if (device == NULL) {
-        PRINT_ERROR_ALLOC_FAILED("calloc")
+        PRINT_ERROR_ALLOC_FAILED("calloc");
         return NULL;
     }
     device->path = strdup(path);
     if (device->path == NULL) {
-        PRINT_ERROR_OTHER("failed to duplicate path")
+        PRINT_ERROR_OTHER("failed to duplicate path");
         free(device);
         return NULL;
     }
@@ -157,7 +159,7 @@ static int queue_write(struct async_device * device, const char * buf, unsigned 
   }
   void * dup = calloc(count, sizeof(char));
   if(!dup) {
-      PRINT_ERROR_ALLOC_FAILED("malloc")
+      PRINT_ERROR_ALLOC_FAILED("malloc");
       return -1;
   }
   memcpy(dup, buf, count);
@@ -182,12 +184,12 @@ static int set_overlapped(struct async_device * device) {
      */
     device->read.overlapped.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     if(device->read.overlapped.hEvent == INVALID_HANDLE_VALUE) {
-        PRINT_ERROR_GETLASTERROR("CreateEvent")
+        PRINT_ERROR_GETLASTERROR("CreateEvent");
         return -1;
     }
     device->write.overlapped.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     if(device->write.overlapped.hEvent == INVALID_HANDLE_VALUE) {
-        PRINT_ERROR_GETLASTERROR("CreateEvent")
+        PRINT_ERROR_GETLASTERROR("CreateEvent");
         return -1;
     }
     return 0;
@@ -195,7 +197,7 @@ static int set_overlapped(struct async_device * device) {
 
 struct async_device * async_open_path(const char * path, int print) {
 
-    CHECK_INITIALIZED(print, NULL)
+    CHECK_INITIALIZED(print, NULL);
 
     DWORD accessdirection = GENERIC_READ | GENERIC_WRITE;
     DWORD sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE;
@@ -214,7 +216,7 @@ struct async_device * async_open_path(const char * path, int print) {
         }
         else {
             if(print) {
-                PRINT_ERROR_GETLASTERROR("CreateFile")
+                PRINT_ERROR_GETLASTERROR("CreateFile");
             }
         }
     }
@@ -229,26 +231,26 @@ int async_close(struct async_device * device) {
       if(pCancelIoEx(device->handle, &device->read.overlapped)) {
         if (!GetOverlappedResult(device->handle, &device->read.overlapped, &dwBytesTransfered, TRUE)) { //block until completion
           if(GetLastError() != ERROR_OPERATION_ABORTED) {
-            PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+            PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
           }
         }
       }
       else if(GetLastError() != ERROR_NOT_FOUND)
       {
-        PRINT_ERROR_GETLASTERROR("CancelIoEx")
+        PRINT_ERROR_GETLASTERROR("CancelIoEx");
       }
     }
     if(device->write.overlapped.hEvent != INVALID_HANDLE_VALUE) {
       if(pCancelIoEx(device->handle, &device->write.overlapped)) {
         if (!GetOverlappedResult(device->handle, &device->write.overlapped, &dwBytesTransfered, TRUE)) { //block until completion
           if(GetLastError() != ERROR_OPERATION_ABORTED) {
-            PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+            PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
           }
         }
       }
       else if(GetLastError() != ERROR_NOT_FOUND)
       {
-        PRINT_ERROR_GETLASTERROR("CancelIoEx")
+        PRINT_ERROR_GETLASTERROR("CancelIoEx");
       }
     }
 
@@ -276,7 +278,7 @@ int async_close(struct async_device * device) {
 int async_read_timeout(struct async_device * device, void * buf, unsigned int count, unsigned int timeout) {
 
   if(device->device_type == E_ASYNC_DEVICE_TYPE_HID && device->read.size == 0) {
-    PRINT_ERROR_OTHER("the HID device has no IN endpoint")
+    PRINT_ERROR_OTHER("the HID device has no IN endpoint");
     return -1;
   }
 
@@ -300,7 +302,7 @@ int async_read_timeout(struct async_device * device, void * buf, unsigned int co
 
   if(!ReadFile(device->handle, dest, destLength, NULL, &device->read.overlapped)) {
     if(GetLastError() != ERROR_IO_PENDING) {
-      PRINT_ERROR_GETLASTERROR("ReadFile")
+      PRINT_ERROR_GETLASTERROR("ReadFile");
       return -1;
     }
     int ret = WaitForSingleObject(device->read.overlapped.hEvent, timeout);
@@ -308,27 +310,27 @@ int async_read_timeout(struct async_device * device, void * buf, unsigned int co
     {
       case WAIT_OBJECT_0:
         if (!GetOverlappedResult(device->handle, &device->read.overlapped, &dwBytesRead, FALSE)) {
-          PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+          PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
           return -1;
         }
         break;
       case WAIT_TIMEOUT:
         if(!pCancelIoEx(device->handle, &device->read.overlapped)) {
-          PRINT_ERROR_GETLASTERROR("CancelIoEx")
+          PRINT_ERROR_GETLASTERROR("CancelIoEx");
           return -1;
         }
         if (!GetOverlappedResult(device->handle, &device->read.overlapped, &dwBytesRead, TRUE)) { //block until completion
           if (GetLastError() != ERROR_OPERATION_ABORTED) {
-            PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+            PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
             return -1;
           }
         }
         if(dwBytesRead != destLength) { // the read operation may still have succeed
-          PRINT_ERROR_OTHER("ReadFile failed: timeout expired.")
+          PRINT_ERROR_OTHER("ReadFile failed: timeout expired.");
         }
         break;
       default:
-        PRINT_ERROR_GETLASTERROR("WaitForSingleObject")
+        PRINT_ERROR_GETLASTERROR("WaitForSingleObject");
         return -1;
     }
   }
@@ -357,7 +359,7 @@ int async_read_timeout(struct async_device * device, void * buf, unsigned int co
 int async_write_timeout(struct async_device * device, const void * buf, unsigned int count, unsigned int timeout) {
     
   if(device->device_type == E_ASYNC_DEVICE_TYPE_HID && device->write.size == 0) {
-    PRINT_ERROR_OTHER("the HID device has no OUT endpoint")
+    PRINT_ERROR_OTHER("the HID device has no OUT endpoint");
     return -1;
   }
 
@@ -369,34 +371,34 @@ int async_write_timeout(struct async_device * device, const void * buf, unsigned
 
   if(!WriteFile(device->handle, buf, count, NULL, &device->write.overlapped)) {
     if(GetLastError() != ERROR_IO_PENDING) {
-      PRINT_ERROR_GETLASTERROR("WriteFile")
+      PRINT_ERROR_GETLASTERROR("WriteFile");
       return -1;
     }
     int ret = WaitForSingleObject(device->write.overlapped.hEvent, timeout);
     switch (ret) {
       case WAIT_OBJECT_0:
         if (!GetOverlappedResult(device->handle, &device->write.overlapped, &dwBytesWritten, FALSE)) {
-          PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+          PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
           return -1;
         }
         break;
       case WAIT_TIMEOUT:
         if(!pCancelIoEx(device->handle, &device->write.overlapped)) {
-          PRINT_ERROR_GETLASTERROR("CancelIoEx")
+          PRINT_ERROR_GETLASTERROR("CancelIoEx");
           return -1;
         }
         if (!GetOverlappedResult(device->handle, &device->write.overlapped, &dwBytesWritten, TRUE)) { //block until completion
           if (GetLastError() != ERROR_OPERATION_ABORTED) {
-            PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+            PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
             return -1;
           }
         }
         if(dwBytesWritten != count) { // the write operation may still have succeed
-          PRINT_ERROR_OTHER("WriteFile failed: timeout expired.")
+          PRINT_ERROR_OTHER("WriteFile failed: timeout expired.");
         }
         break;
       default:
-        PRINT_ERROR_GETLASTERROR("WaitForSingleObject")
+        PRINT_ERROR_GETLASTERROR("WaitForSingleObject");
         return -1;
     }
   }
@@ -416,7 +418,7 @@ static int start_overlapped_read(struct async_device * device) {
 
   if(device->read.buf == NULL) {
 
-    PRINT_ERROR_OTHER("the read buffer is NULL")
+    PRINT_ERROR_OTHER("the read buffer is NULL");
     return -1;
   }
 
@@ -428,7 +430,7 @@ static int start_overlapped_read(struct async_device * device) {
   {
     if(GetLastError() != ERROR_IO_PENDING)
     {
-      PRINT_ERROR_GETLASTERROR("ReadFile")
+      PRINT_ERROR_GETLASTERROR("ReadFile");
       ret = -1;
     }
   }
@@ -436,7 +438,7 @@ static int start_overlapped_read(struct async_device * device) {
   {
     DWORD dwBytesRead;
     if (!GetOverlappedResult(device->handle, &device->read.overlapped, &dwBytesRead, FALSE)) {
-      PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+      PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
       return -1;
     }
     // the read immediately completed
@@ -471,7 +473,7 @@ static int read_callback(void * user) {
 
     if (!GetOverlappedResult(device->handle, &device->read.overlapped, &dwBytesRead, FALSE))
     {
-      PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+      PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
       return -1;
     }
 
@@ -488,13 +490,13 @@ static int write_internal(struct async_device * device) {
 
     if(!WriteFile(device->handle, device->write.queue.data[0].buf, device->write.queue.data[0].count, NULL, &device->write.overlapped)) {
       if(GetLastError() != ERROR_IO_PENDING) {
-        PRINT_ERROR_GETLASTERROR("WriteFile")
+        PRINT_ERROR_GETLASTERROR("WriteFile");
         return -1;
       }
     }
     else {
       if (!GetOverlappedResult(device->handle, &device->write.overlapped, &dwBytesWritten, FALSE)) {
-        PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+        PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
         return -1;
       }
     }
@@ -512,7 +514,7 @@ static int write_callback(void * user) {
 
     if (!GetOverlappedResult(device->handle, &device->write.overlapped, &dwBytesWritten, FALSE))
     {
-      PRINT_ERROR_GETLASTERROR("GetOverlappedResult")
+      PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
       ret = -1;
     }
 
@@ -545,7 +547,7 @@ int async_set_read_size(struct async_device * device, unsigned int size) {
     if(size > device->read.size) {
         void * ptr = realloc(device->read.buf, size);
         if(ptr == NULL) {
-            PRINT_ERROR_ALLOC_FAILED("realloc")
+            PRINT_ERROR_ALLOC_FAILED("realloc");
             return -1;
         }
         device->read.buf = ptr;
@@ -594,7 +596,7 @@ int async_register(struct async_device * device, void * user, const ASYNC_CALLBA
 int async_write(struct async_device * device, const void * buf, unsigned int count) {
     
     if(device->device_type == E_ASYNC_DEVICE_TYPE_HID && device->write.size == 0) {
-        PRINT_ERROR_OTHER("the HID device has no OUT endpoint")
+        PRINT_ERROR_OTHER("the HID device has no OUT endpoint");
         return -1;
     }
 

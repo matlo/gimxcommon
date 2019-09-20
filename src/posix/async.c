@@ -23,12 +23,14 @@ GLOG_GET(GLOG_NAME)
 static unsigned int clients = 0;
 
 #define CHECK_INITIALIZED(PRINT,RETVALUE) \
-    if (clients == 0) { \
-        if (PRINT != 0) { \
-            PRINT_ERROR_OTHER("async_init should be called first") \
+    do { \
+        if (clients == 0) { \
+            if (PRINT != 0) { \
+                PRINT_ERROR_OTHER("async_init should be called first"); \
+            } \
+            return RETVALUE; \
         } \
-        return RETVALUE; \
-    }
+    } while (0)
 
 struct async_device {
     int fd;
@@ -56,7 +58,7 @@ GLIST_INST(struct async_device, async_devices, async_close)
 int async_init() {
 
     if (clients == UINT_MAX) {
-        PRINT_ERROR_OTHER("too many clients")
+        PRINT_ERROR_OTHER("too many clients");
         return -1;
     }
     ++clients;
@@ -91,12 +93,12 @@ static struct async_device * add_device(const char * path, int fd, int print) {
 
     struct async_device * device = calloc(1, sizeof(*device));
     if (device == NULL) {
-        PRINT_ERROR_ALLOC_FAILED("calloc")
+        PRINT_ERROR_ALLOC_FAILED("calloc");
         return NULL;
     }
     device->path = strdup(path);
     if (device->path == NULL) {
-        PRINT_ERROR_OTHER("failed to duplicate path")
+        PRINT_ERROR_OTHER("failed to duplicate path");
         free(device);
         return NULL;
     }
@@ -107,7 +109,7 @@ static struct async_device * add_device(const char * path, int fd, int print) {
 
 struct async_device * async_open_path(const char * path, int print) {
 
-    CHECK_INITIALIZED(print, NULL)
+    CHECK_INITIALIZED(print, NULL);
 
     struct async_device * device = NULL;
     if(path != NULL) {
@@ -120,7 +122,7 @@ struct async_device * async_open_path(const char * path, int print) {
         }
         else {
             if(print) {
-                PRINT_ERROR_ERRNO("open")
+                PRINT_ERROR_ERRNO("open");
             }
         }
     }
@@ -178,7 +180,7 @@ int async_read_timeout(struct async_device * device, void * buf, unsigned int co
       {
         continue;
       }
-      PRINT_ERROR_ERRNO("select")
+      PRINT_ERROR_ERRNO("select");
     }
     else
     {
@@ -222,7 +224,7 @@ int async_write_timeout(struct async_device * device, const void * buf, unsigned
     }
     else
     {
-      PRINT_ERROR_ERRNO("select")
+      PRINT_ERROR_ERRNO("select");
       break;
     }
   }
@@ -240,7 +242,7 @@ static int read_callback(void * user) {
     int ret = read(device->fd, device->read.buf, device->read.count);
 
     if(ret < 0) {
-        PRINT_ERROR_ERRNO("read")
+        PRINT_ERROR_ERRNO("read");
     }
 
     return device->callback.fp_read(device->callback.user, (const char *)device->read.buf, ret);
@@ -261,7 +263,7 @@ int async_set_read_size(struct async_device * device, unsigned int size) {
     if(size > device->read.size) {
         void * ptr = realloc(device->read.buf, size);
         if(ptr == NULL) {
-            PRINT_ERROR_ALLOC_FAILED("realloc")
+            PRINT_ERROR_ALLOC_FAILED("realloc");
             return -1;
         }
         device->read.buf = ptr;
@@ -276,11 +278,11 @@ int async_set_read_size(struct async_device * device, unsigned int size) {
 int async_register(struct async_device * device, void * user, const ASYNC_CALLBACKS * callbacks) {
 
     if (callbacks->fp_remove == NULL) {
-        PRINT_ERROR_OTHER("fp_remove is NULL")
+        PRINT_ERROR_OTHER("fp_remove is NULL");
     }
 
     if (callbacks->fp_register == NULL) {
-        PRINT_ERROR_OTHER("fp_register is NULL")
+        PRINT_ERROR_OTHER("fp_register is NULL");
     }
 
     device->callback.user = user;
@@ -301,7 +303,7 @@ int async_write(struct async_device * device, const void * buf, unsigned int cou
 
     int ret = write(device->fd, buf, count);
     if (ret == -1) {
-        PRINT_ERROR_ERRNO("write")
+        PRINT_ERROR_ERRNO("write");
     }
     else if((unsigned int) ret != count) {
         if (GLOG_LEVEL(GLOG_NAME,ERROR)) {

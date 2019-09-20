@@ -12,25 +12,33 @@
 void gerror_print_last(const char * msg);
 
 #define PRINT_ERROR_GETLASTERROR(msg) \
-  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
-    fprintf(stderr, "%s:%d %s: %s failed with error", __FILE__, __LINE__, __func__, msg); \
-    gerror_print_last(""); \
-  }
+    do { \
+        if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+            fprintf(stderr, "%s:%d %s: %s failed with error", __FILE__, __LINE__, __func__, msg); \
+            gerror_print_last(""); \
+        } \
+    } while (0)
 #endif
 
 #define PRINT_ERROR_ERRNO(msg) \
-  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
-    fprintf(stderr, "%s:%d %s: %s failed with error: %m\n", __FILE__, __LINE__, __func__, msg); \
-  }
+    do { \
+        if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+            fprintf(stderr, "%s:%d %s: %s failed with error: %m\n", __FILE__, __LINE__, __func__, msg); \
+        } \
+    } while (0)
 
 #define PRINT_ERROR_ALLOC_FAILED(func) \
-  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
-    fprintf(stderr, "%s:%d %s: %s failed\n", __FILE__, __LINE__, __func__, func); \
-  }
+    do { \
+        if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+            fprintf(stderr, "%s:%d %s: %s failed\n", __FILE__, __LINE__, __func__, func); \
+        } \
+    } while (0)
 
 #define PRINT_ERROR_OTHER(msg) \
-  if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
-    fprintf(stderr, "%s:%d %s: %s\n", __FILE__, __LINE__, __func__, msg); \
-  }
+    do { \
+        if (GLOG_LEVEL(GLOG_NAME,ERROR)) { \
+            fprintf(stderr, "%s:%d %s: %s\n", __FILE__, __LINE__, __func__, msg); \
+        } \
+    } while (0)
 
 #endif /* GERROR_H_ */
