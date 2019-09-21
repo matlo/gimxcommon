@@ -76,7 +76,7 @@ static inline int setup_cancel_io(void)
 {
   HMODULE hKernel32 = GetModuleHandleA("KERNEL32");
   if (hKernel32 != NULL) {
-    pCancelIoEx = (BOOL (__stdcall *)(HANDLE,LPOVERLAPPED)) GetProcAddress(hKernel32, "CancelIoEx");
+    pCancelIoEx = (BOOL (__stdcall *)(HANDLE,LPOVERLAPPED))(void (*)(void)) GetProcAddress(hKernel32, "CancelIoEx");
   }
   if(pCancelIoEx == NULL) {
     PRINT_ERROR_GETLASTERROR("GetProcAddress");
