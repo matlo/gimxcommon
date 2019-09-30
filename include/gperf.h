@@ -9,6 +9,8 @@
 #include <gimxtime/include/gtime.h>
 #include <gimxlog/include/glog.h>
 
+#include <inttypes.h>
+
 #define GPERF_XSTR(s) GPERF_STR(s)
 #define GPERF_STR(s) #s
 
@@ -57,7 +59,7 @@
 #define GPERF_LOG(NAME) \
     do { \
         if (gperf_##NAME.count) { \
-            printf(GPERF_XSTR(NAME)": count = %I64u, average = %I64u, worst = %I64u\n", gperf_##NAME.count, gperf_##NAME.sum / gperf_##NAME.count, gperf_##NAME.worst); \
+            printf(GPERF_XSTR(NAME)": count = %"PRIu64", average = %"PRIu64", worst = %"PRIu64"\n", gperf_##NAME.count, gperf_##NAME.sum / gperf_##NAME.count, gperf_##NAME.worst); \
         } \
     } while (0)
 
