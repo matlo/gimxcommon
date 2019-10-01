@@ -53,7 +53,7 @@ struct async_device {
     GLIST_LINK(struct async_device);
 };
 
-GLIST_INST(struct async_device, async_devices);
+static GLIST_INST(struct async_device, async_devices);
 GLIST_DESTRUCTOR(async_devices, async_close)
 
 int async_init() {
