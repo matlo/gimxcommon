@@ -50,10 +50,11 @@ struct async_device {
         ASYNC_REMOVE_SOURCE fp_remove;
     } callback;
     void * priv;
-    GLIST_LINK(struct async_device)
+    GLIST_LINK(struct async_device);
 };
 
-GLIST_INST(struct async_device, async_devices, async_close)
+GLIST_INST(struct async_device, async_devices);
+GLIST_DESTRUCTOR(async_devices, async_close)
 
 int async_init() {
 

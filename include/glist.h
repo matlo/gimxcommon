@@ -7,43 +7,44 @@
 #define GLIST_H_
 
 #define GLIST_LINK(TYPE) \
-    TYPE * prev; \
-    TYPE * next;
+    TYPE * prev, * next
 
-#define GLIST_HEAD(NAME) glist_##NAME##_head
-#define GLIST_TAIL(NAME) glist_##NAME##_tail
+#define GLIST_HEAD(NAME) glist_##NAME.head
+#define GLIST_TAIL(NAME) glist_##NAME.tail
 
 #define GLIST_IS_EMPTY(NAME) (GLIST_HEAD(NAME).next == &GLIST_TAIL(NAME))
 
 #define GLIST_BEGIN(NAME) GLIST_HEAD(NAME).next
 #define GLIST_END(NAME) &GLIST_TAIL(NAME)
 
-#define GLIST_ADD(NAME,ELEMENT) \
+#define GLIST_ADD(NAME, ELEMENT) \
     GLIST_TAIL(NAME).prev->next = ELEMENT; \
     ELEMENT->prev = GLIST_TAIL(NAME).prev; \
     GLIST_TAIL(NAME).prev = ELEMENT; \
     ELEMENT->next = &GLIST_TAIL(NAME);
 
-#define GLIST_REMOVE(NAME,ELEMENT) \
+#define GLIST_REMOVE(NAME, ELEMENT) \
     ELEMENT->prev->next = ELEMENT->next; \
     ELEMENT->next->prev = ELEMENT->prev;
 
-#define GLIST_CLEAN_ALL(NAME,CLEAN) \
+#define GLIST_CLEAN_ALL(NAME, CLEAN) \
     while (GLIST_BEGIN(NAME) != GLIST_END(NAME)) { \
         CLEAN(GLIST_BEGIN(NAME)); \
     }
 
-#define GLIST_INST(TYPE,NAME,CLEAN) \
-    static TYPE GLIST_HEAD(NAME); \
-    static TYPE GLIST_TAIL(NAME); \
-    void GLIST_##NAME##_constructor(void) __attribute__((constructor)); \
-    void GLIST_##NAME##_constructor(void) { \
-        GLIST_HEAD(NAME).next = &GLIST_TAIL(NAME); \
-        GLIST_TAIL(NAME).prev = &GLIST_HEAD(NAME); \
-    } \
+#define GLIST_INST(TYPE, NAME) \
+    struct { \
+        TYPE head; \
+        TYPE tail; \
+    } glist_##NAME = { \
+        .head = { .next = &GLIST_TAIL(NAME) }, \
+        .tail = { .prev = &GLIST_HEAD(NAME) }, \
+    }
+
+#define GLIST_DESTRUCTOR(NAME, CLEAN) \
     void GLIST_##NAME##_destructor(void) __attribute__((destructor)); \
     void GLIST_##NAME##_destructor(void) { \
-        GLIST_CLEAN_ALL(NAME,CLEAN) \
+        GLIST_CLEAN_ALL(NAME, CLEAN) \
     }
 
 #endif /* GLIST_H_ */
