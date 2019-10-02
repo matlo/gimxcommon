@@ -18,14 +18,18 @@
 #define GLIST_END(NAME) &GLIST_TAIL(NAME)
 
 #define GLIST_ADD(NAME, ELEMENT) \
-    GLIST_TAIL(NAME).prev->next = ELEMENT; \
-    ELEMENT->prev = GLIST_TAIL(NAME).prev; \
-    GLIST_TAIL(NAME).prev = ELEMENT; \
-    ELEMENT->next = &GLIST_TAIL(NAME);
+    do { \
+        GLIST_TAIL(NAME).prev->next = ELEMENT; \
+        ELEMENT->prev = GLIST_TAIL(NAME).prev; \
+        GLIST_TAIL(NAME).prev = ELEMENT; \
+        ELEMENT->next = &GLIST_TAIL(NAME); \
+    } while (0)
 
 #define GLIST_REMOVE(NAME, ELEMENT) \
-    ELEMENT->prev->next = ELEMENT->next; \
-    ELEMENT->next->prev = ELEMENT->prev;
+    do { \
+        ELEMENT->prev->next = ELEMENT->next; \
+        ELEMENT->next->prev = ELEMENT->prev; \
+    } while (0)
 
 #define GLIST_CLEAN_ALL(NAME, CLEAN) \
     while (GLIST_BEGIN(NAME) != GLIST_END(NAME)) { \

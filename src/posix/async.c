@@ -104,7 +104,7 @@ static struct async_device * add_device(const char * path, int fd, int print) {
         return NULL;
     }
     device->fd = fd;
-    GLIST_ADD(async_devices, device)
+    GLIST_ADD(async_devices, device);
     return device;
 }
 
@@ -141,7 +141,7 @@ int async_close(struct async_device * device) {
     free(device->path);
     free(device->read.buf);
 
-    GLIST_REMOVE(async_devices, device)
+    GLIST_REMOVE(async_devices, device);
 
     free(device);
 

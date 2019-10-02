@@ -144,7 +144,7 @@ static struct async_device * add_device(const char * path, HANDLE handle, int pr
     device->handle = handle;
     device->read.overlapped.hEvent = INVALID_HANDLE_VALUE;
     device->write.overlapped.hEvent = INVALID_HANDLE_VALUE;
-    GLIST_ADD(async_devices, device)
+    GLIST_ADD(async_devices, device);
     return device;
 }
 
@@ -269,7 +269,7 @@ int async_close(struct async_device * device) {
     CloseHandle(device->write.overlapped.hEvent);
     CloseHandle(device->handle);
 
-    GLIST_REMOVE(async_devices, device)
+    GLIST_REMOVE(async_devices, device);
 
     free(device);
 
