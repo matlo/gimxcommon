@@ -35,8 +35,6 @@ typedef struct {
 
 struct async_device;
 
-int async_init();
-int async_exit();
 struct async_device * async_open_path(const char * path, int print);
 int async_close(struct async_device * device);
 int async_read_timeout(struct async_device * device, void * buf, unsigned int count, unsigned int timeout);

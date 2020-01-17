@@ -20,18 +20,6 @@
 
 GLOG_GET(GLOG_NAME)
 
-static unsigned int clients = 0;
-
-#define CHECK_INITIALIZED(PRINT,RETVALUE) \
-    do { \
-        if (clients == 0) { \
-            if (PRINT != 0) { \
-                PRINT_ERROR_OTHER("async_init should be called first"); \
-            } \
-            return RETVALUE; \
-        } \
-    } while (0)
-
 struct async_device {
     int fd;
     char * path;
@@ -54,28 +42,6 @@ struct async_device {
 };
 
 static GLIST_INST(struct async_device, async_devices);
-GLIST_DESTRUCTOR(async_devices, async_close)
-
-int async_init() {
-
-    if (clients == UINT_MAX) {
-        PRINT_ERROR_OTHER("too many clients");
-        return -1;
-    }
-    ++clients;
-    return 0;
-}
-
-int async_exit(void) {
-
-    if (clients > 0) {
-        --clients;
-        if (clients == 0) {
-            GLIST_CLEAN_ALL(async_devices, async_close)
-        }
-    }
-    return 0;
-}
 
 static struct async_device * add_device(const char * path, int fd, int print) {
 
@@ -109,8 +75,6 @@ static struct async_device * add_device(const char * path, int fd, int print) {
 }
 
 struct async_device * async_open_path(const char * path, int print) {
-
-    CHECK_INITIALIZED(print, NULL);
 
     struct async_device * device = NULL;
     if(path != NULL) {

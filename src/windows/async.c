@@ -17,18 +17,6 @@
 
 GLOG_GET(GLOG_NAME)
 
-static unsigned int clients = 0;
-
-#define CHECK_INITIALIZED(PRINT,RETVALUE) \
-    do { \
-        if (clients == 0) { \
-            if (PRINT != 0) { \
-                PRINT_ERROR_OTHER("async_init should be called first"); \
-            } \
-            return RETVALUE; \
-        } \
-    } while (0)
-
 typedef struct
 {
   struct
@@ -69,51 +57,6 @@ struct async_device {
 };
 
 static GLIST_INST(struct async_device, async_devices);
-GLIST_DESTRUCTOR(async_devices, async_close)
-
-static BOOL (__stdcall *pCancelIoEx)(HANDLE, LPOVERLAPPED) = NULL;
-
-static inline int setup_cancel_io(void)
-{
-  HMODULE hKernel32 = GetModuleHandleA("KERNEL32");
-  if (hKernel32 != NULL) {
-    pCancelIoEx = (BOOL (__stdcall *)(HANDLE,LPOVERLAPPED))(void (*)(void)) GetProcAddress(hKernel32, "CancelIoEx");
-  }
-  if(pCancelIoEx == NULL) {
-    PRINT_ERROR_GETLASTERROR("GetProcAddress");
-    return -1;
-  }
-  return 0;
-}
-
-int async_init() {
-
-    if (clients == UINT_MAX) {
-        PRINT_ERROR_OTHER("too many clients");
-        return -1;
-    }
-    
-    if (clients == 0 && pCancelIoEx == NULL) {
-        if (setup_cancel_io() < 0) {
-            return -1;
-        }
-    }
-
-    ++clients;
-
-    return 0;
-}
-
-int async_exit() {
-
-    if (clients > 0) {
-        --clients;
-        if (clients == 0) {
-            GLIST_CLEAN_ALL(async_devices, async_close)
-        }
-    }
-    return 0;
-}
 
 static struct async_device * add_device(const char * path, HANDLE handle, int print) {
 
@@ -198,8 +141,6 @@ static int set_overlapped(struct async_device * device) {
 
 struct async_device * async_open_path(const char * path, int print) {
 
-    CHECK_INITIALIZED(print, NULL);
-
     DWORD accessdirection = GENERIC_READ | GENERIC_WRITE;
     DWORD sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE;
     struct async_device * device = NULL;
@@ -229,7 +170,7 @@ int async_close(struct async_device * device) {
     DWORD dwBytesTransfered;
 
     if(device->read.overlapped.hEvent != INVALID_HANDLE_VALUE) {
-      if(pCancelIoEx(device->handle, &device->read.overlapped)) {
+      if(CancelIoEx(device->handle, &device->read.overlapped)) {
         if (!GetOverlappedResult(device->handle, &device->read.overlapped, &dwBytesTransfered, TRUE)) { //block until completion
           if(GetLastError() != ERROR_OPERATION_ABORTED) {
             PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
@@ -242,7 +183,7 @@ int async_close(struct async_device * device) {
       }
     }
     if(device->write.overlapped.hEvent != INVALID_HANDLE_VALUE) {
-      if(pCancelIoEx(device->handle, &device->write.overlapped)) {
+      if(CancelIoEx(device->handle, &device->write.overlapped)) {
         if (!GetOverlappedResult(device->handle, &device->write.overlapped, &dwBytesTransfered, TRUE)) { //block until completion
           if(GetLastError() != ERROR_OPERATION_ABORTED) {
             PRINT_ERROR_GETLASTERROR("GetOverlappedResult");
@@ -316,7 +257,7 @@ int async_read_timeout(struct async_device * device, void * buf, unsigned int co
         }
         break;
       case WAIT_TIMEOUT:
-        if(!pCancelIoEx(device->handle, &device->read.overlapped)) {
+        if(!CancelIoEx(device->handle, &device->read.overlapped)) {
           PRINT_ERROR_GETLASTERROR("CancelIoEx");
           return -1;
         }
@@ -384,7 +325,7 @@ int async_write_timeout(struct async_device * device, const void * buf, unsigned
         }
         break;
       case WAIT_TIMEOUT:
-        if(!pCancelIoEx(device->handle, &device->write.overlapped)) {
+        if(!CancelIoEx(device->handle, &device->write.overlapped)) {
           PRINT_ERROR_GETLASTERROR("CancelIoEx");
           return -1;
         }
