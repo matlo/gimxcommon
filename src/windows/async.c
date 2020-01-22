@@ -268,7 +268,9 @@ int async_read_timeout(struct async_device * device, void * buf, unsigned int co
           }
         }
         if(dwBytesRead != destLength) { // the read operation may still have succeed
-          PRINT_ERROR_OTHER("ReadFile failed: timeout expired.");
+          if (GLOG_LEVEL(GLOG_NAME,DEBUG)) {
+            fprintf(stderr, "%s:%d %s: ReadFile failed: timeout expired.\n", __FILE__, __LINE__, __func__);
+          }
         }
         break;
       default:
