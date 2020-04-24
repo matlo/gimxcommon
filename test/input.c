@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <gimxinput/include/ginput.h>
 
+static int lshift = 0;
+
 void display_devices()
 {
   int i;
@@ -61,13 +63,24 @@ int process_event(GE_Event* event)
       printf("Keyboard: %s (%u) - key down: %s\n", ginput_keyboard_name(event->key.which), ginput_keyboard_virtual_id(event->key.which), ginput_key_name(event->key.keysym));
       if(event->key.keysym == GE_KEY_ESC)
       {
-        done = 1;
-        fflush(stdout);
-        return 1;
+        done = (lshift == 1);
+        if (done)
+        {
+          fflush(stdout);
+          return 1;
+        }
+      }
+      else if(event->key.keysym == GE_KEY_LEFTSHIFT)
+      {
+        lshift = 1;
       }
       break;
     case GE_KEYUP:
       printf("Keyboard: %s (%u) - key up: %s\n", ginput_keyboard_name(event->key.which), ginput_keyboard_virtual_id(event->key.which), ginput_key_name(event->key.keysym));
+      if(event->key.keysym == GE_KEY_LEFTSHIFT)
+      {
+        lshift = 0;
+      }
       break;
     case GE_MOUSEBUTTONDOWN:
       printf("Mouse: %s (%u) - button down: %s\n", ginput_mouse_name(event->button.which), ginput_mouse_virtual_id(event->button.which), ginput_mouse_button_name(event->button.button));
